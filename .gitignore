@@ -8,7 +8,7 @@ docker-compose.local.yml
 tmp
 
 # Memory Enging Related
-src/skills/memory_engine/memory_config.json
+src/skills/memory_engine/memory_config.json*
 memories/*
 !memories/.gitkeep
 !memories/active/

@@ -49,11 +49,14 @@ def sync_vector_files(filenames: list, workspace_root: str) -> None:
 
         print(f"🔄 Syncing {filename} to pgvector...")
         try:
-            db_helper.sync_file_to_vector_db(f"indexes/{filename}", content, {"title": filename, "type": "index"})
+            success = db_helper.sync_file_to_vector_db(f"indexes/{filename}", content, {"title": filename, "type": "index"})
+            if not success:
+                raise RuntimeError(f"Database helper returned failure for {filename}")
             state[filename] = content_hash
             updated = True
         except Exception as e:
             print(f"❌ File {filename} vector sync FAILED: {e}")
+            raise e
 
     if updated:
         _save_hash_state(state)

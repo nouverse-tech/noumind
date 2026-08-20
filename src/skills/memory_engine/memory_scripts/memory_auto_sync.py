@@ -50,7 +50,7 @@ def main():
         nas = NasHelper(archived_memory_dir, nas_ssh_host)
 
         print("1. Reconciling missing summaries...")
-        reconcile_missing_summaries(
+        unsummarized = reconcile_missing_summaries(
             active_memory_dir, summaries_dir, archived_memory_dir,
             controlled_vocab, config, nas, sync_limit_days
         )
@@ -73,7 +73,15 @@ def main():
         print("6. Syncing OpenClaw core files to NAS...")
         sync_core_files_to_nas(nas)
 
-        print("\n🚀 RAG Smart Sync Finished.")
+        # Archival is gated on a summary existing, so unsummarized days are days the vault did not
+        # receive. Reported here because the only other signal is a vault that quietly stops moving.
+        if unsummarized:
+            print(
+                f"\n⚠️ RAG Smart Sync finished with {unsummarized} day(s) still unsummarized — "
+                "those days were NOT archived. Check the LLM gateway (auth/model) above."
+            )
+        else:
+            print("\n🚀 RAG Smart Sync Finished.")
     except Exception as e:
         print(f"\n💥 CRITICAL SYNC ERROR: {e}")
         sys.exit(1)

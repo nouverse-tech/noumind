@@ -14,6 +14,7 @@ Use this skill for Nouva's 2-lane memory system:
 ## Tools
 - `memory_query`: semantic recall tool. Returns the best matching summaries and archive path pointers for follow-up. Use for recall/context only, not for counts, ranking, aggregation, or trend analysis.
 - `memory_analyze`: deterministic analytics executor over daily summaries. Structured input only; the agent must parse natural language before calling it.
+- `memory_recent`: read the last few days of memory straight from the active directory — today's and yesterday's daily notes and session transcripts, before the nightly pipeline has summarised them. Filesystem only: no vector search, no database, nothing that can be unavailable. Parameters: 'days' (optional, default 2). This is the ONLY tool that can see today.
 - `memory_grep`: search for a keyword/pattern inside memory files. Parameters: 'query' (required), 'location' (optional: 'active', 'archived', or 'all' — defaults to 'all'). Returns matching lines with file paths.
 - `memory_read_file`: read the raw content of a memory file. Parameters: 'path' (required — use EXACTLY as shown in grep results), 'location' (optional: 'active', 'archived', or omit to auto-search both).
 - `session_write`: save a conversation session to memory. Condense into key points only — important decisions, events, conclusions, action items, and technical details. Do NOT dump entire chat verbatim. Manual-only; call only when the user explicitly asks to save.
@@ -37,6 +38,8 @@ Use these rules to keep analytics answers deterministic:
   - "find the conversation that discussed ..."
 - Do not use `memory_query` to answer counts, top values, averages, trends, distributions, or grouped/date-based analytics.
 - For mixed questions, run `memory_analyze` first to identify candidate dates or periods, then run `memory_query` only if the user also wants detailed context.
+- Use `memory_recent` FIRST for anything about the recent past — "what did we decide earlier", "apa yang kita kerjain tadi", picking up after a session reset, or any question whose answer would be from today or yesterday. `memory_query` and `memory_analyze` are blind to those days: both read summaries, and a day is only summarised by the 01:00 pipeline run *after* it ends. Reaching for `memory_query` to answer "what did we do today" returns nothing and reads as amnesia.
+- Do not use `memory_recent` for anything older than the last couple of days. Those days have summaries, and reading raw transcripts to answer a question a summary already answers is what `memory_query` exists to avoid.
 - Use `memory_grep` when searching for exact strings, IDs, errors, or codes that might not yield good semantic matches in vector search.
 - Use `memory_read_file` to read the full content of a specific session transcript or daily summary once you have the exact relative path.
 - If `memory_query` only gives you a date or archive directory hint, use `memory_grep` first to locate the exact relative file path, then call `memory_read_file`.
@@ -121,7 +124,8 @@ Examples:
 
 ## Do / Don't
 
-- Do use `memory_query` for recall and context reconstruction.
+- Do use `memory_recent` for today and yesterday — it is the only tool that can see them.
+- Do use `memory_query` for recall and context reconstruction of days already archived.
 - Do use `memory_analyze` for counts, trends, distributions, and date aggregation.
 - Do convert natural language into structured analytics arguments before calling `memory_analyze`.
 - Do run analytics first for mixed questions that combine aggregation with detail recall.

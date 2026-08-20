@@ -5,6 +5,8 @@ import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from memory_util.memory_load_config import resolve_today
+
 # File type patterns
 RE_DAILY_NOTE = re.compile(r"^\d{4}-\d{2}-\d{2}\.md$")
 RE_RAW_TRANSCRIPT = re.compile(r"^\d{4}-\d{2}-\d{2}-.+\.md$")
@@ -183,7 +185,7 @@ def sync_memory_logs(active_memory_dir: str, nas, sync_limit_days: int = 1) -> N
 
     last_synced_date = _get_last_synced_date(nas, active_memory_dir)
     print(f"Last index/DB synced date: {last_synced_date}")
-    limit = datetime.date.today() - datetime.timedelta(days=sync_limit_days)
+    limit = resolve_today() - datetime.timedelta(days=sync_limit_days)
     memory_dir = active_memory_dir
 
     if not os.path.exists(memory_dir):

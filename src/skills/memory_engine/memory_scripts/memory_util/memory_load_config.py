@@ -1,6 +1,9 @@
+import datetime
 import os
 import json
 import re
+from zoneinfo import ZoneInfo
+
 import yaml
 
 # Absolute path to the skill root (src/skills/memory_engine)
@@ -37,6 +40,26 @@ def get_config_value(config: dict | None, path: str, default=None):
         return value
 
     return default
+
+
+def resolve_today(config: dict = None) -> datetime.date:
+    """Today's date in the configured timezone.
+
+    The pipeline's archival window is `today - sync_limit_days`, and `date.today()` reads the
+    host clock, which is UTC here. Run from a 01:00 Asia/Jakarta cron that is 18:00 UTC the day
+    before, so "yesterday" resolved to two days back on the calendar the human lives in, and the
+    vault trailed a day further than configured. Defaults to UTC so an unset key keeps the old
+    behaviour rather than silently shifting the window.
+    """
+    if config is None:
+        config = load_memory_config()
+    tz_name = config.get("timezone") or "UTC"
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        print(f"⚠️ Unknown timezone {tz_name!r} in memory_config.json — falling back to UTC.")
+        tz = ZoneInfo("UTC")
+    return datetime.datetime.now(tz).date()
 
 
 def resolve_paths(config: dict = None):

@@ -6,7 +6,7 @@ import datetime
 sys.path.insert(0, os.path.dirname(__file__))
 
 from memory_db import memory_db_helper as db_helper
-from memory_util.memory_load_config import load_memory_config
+from memory_util.memory_load_config import load_memory_config, resolve_today
 from memory_sync.memory_analytics_sync import load_daily_summaries_from_files
 from memory_db.memory_analytics_repo import (
     ensure_schema,
@@ -152,14 +152,14 @@ def _render_average_importance(avg_value: float | None, count: int, start_date: 
 
 def _default_top_values_range() -> tuple[datetime.date, datetime.date]:
     """Return the default date window for top_values when none is provided."""
-    end_date = datetime.date.today()
+    end_date = resolve_today()
     start_date = end_date - datetime.timedelta(days=29)
     return start_date, end_date
 
 
 def _default_period_range() -> tuple[datetime.date, datetime.date]:
     """Return the default date window for period-based analytics."""
-    end_date = datetime.date.today()
+    end_date = resolve_today()
     start_date = end_date - datetime.timedelta(days=89)
     return start_date, end_date
 

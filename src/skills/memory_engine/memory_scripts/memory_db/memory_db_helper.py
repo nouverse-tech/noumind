@@ -48,13 +48,18 @@ def get_ollama_embeddings(inputs):
     if is_single:
         inputs = [inputs]
 
+    # Batch inputs to prevent Ollama timeouts on CPU
+    batch_size = 5
+    embeddings = []
     try:
-        res = requests.post(f"{embedding_url}/api/embed", json={
-            "model": model,
-            "input": inputs
-        }, timeout=300)
-        res.raise_for_status()
-        embeddings = res.json()["embeddings"]
+        for i in range(0, len(inputs), batch_size):
+            batch = inputs[i:i+batch_size]
+            res = requests.post(f"{embedding_url}/api/embed", json={
+                "model": model,
+                "input": batch
+            }, timeout=300)
+            res.raise_for_status()
+            embeddings.extend(res.json()["embeddings"])
         return embeddings[0] if is_single else embeddings
     except Exception as e:
         print(f"❌ Error generating embeddings (URL: {embedding_url}, model: {model}): {e}")

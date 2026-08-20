@@ -6,11 +6,13 @@ import requests
 import yaml
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from memory_util.memory_llm_client import build_llm_headers
 from memory_util.memory_load_config import (
     get_config_value,
     load_memory_config,
     map_and_filter_entities,
     normalize_entities_in_yaml,
+    resolve_today,
 )
 from memory_db import memory_db_helper as db_helper
 
@@ -79,12 +81,16 @@ def generate_daily_summary(
     try:
         res = requests.post(
             url,
-            headers={"Content-Type": "application/json"},
+            headers=build_llm_headers(config),
             json=payload,
             timeout=int(get_config_value(config, "llm.timeout_seconds", 60)),
         )
         if res.status_code == 200:
             return res.json()["choices"][0]["message"]["content"]
+        # A silent None here is how the gateway's "missing API key" went unnoticed for two weeks:
+        # every summary failed, every archive was skipped for want of a summary, and the only trace
+        # was a vault that stopped advancing. Say what the endpoint actually answered.
+        print(f"❌ Summary generation for {date_str} rejected: HTTP {res.status_code} {res.text[:200]}")
     except Exception as e:
         print(f"❌ Failed to generate summary for {date_str}: {e}")
     return None
@@ -274,8 +280,13 @@ def reconcile_missing_summaries(
     config: dict,
     nas,
     sync_limit_days: int = 1,
-) -> None:
-    """Generate .summary.md files for any dates missing a summary (up to today-sync_limit_days)."""
+) -> int:
+    """Generate .summary.md files for any dates missing a summary (up to today-sync_limit_days).
+
+    Returns the number of dates that still have no summary. Archival refuses to run without one,
+    so a non-zero count means the vault did not advance — the caller reports it rather than
+    finishing with a success banner.
+    """
     os.makedirs(summaries_dir, exist_ok=True)
     all_files = os.listdir(memory_dir)
 
@@ -286,7 +297,7 @@ def reconcile_missing_summaries(
         if f.endswith(".md") and date_pattern.match(f)
     }
 
-    limit = datetime.date.today() - datetime.timedelta(days=sync_limit_days)
+    limit = resolve_today(config) - datetime.timedelta(days=sync_limit_days)
     filtered_dates = {
         d for d in all_dates
         if datetime.datetime.strptime(d, "%Y-%m-%d").date() <= limit
@@ -303,8 +314,9 @@ def reconcile_missing_summaries(
 
     if not missing:
         print("   ⏭️ No missing summaries to reconcile.")
-        return
+        return 0
 
+    failed = 0
     for date_str in missing:
         daily_note_path = os.path.join(memory_dir, f"{date_str}.md")
         daily_note_exists = os.path.exists(daily_note_path)
@@ -351,7 +363,10 @@ def reconcile_missing_summaries(
                 f.write(summary)
             print(f"     * ✅ Summary generated successfully for {date_str}")
         else:
+            failed += 1
             print(f"     * ⚠️ Skipped {date_str}, will retry next run")
+
+    return failed
 
 
 def generate_memory_index(active_memory_dir: str, archived_memory_dir: str, nas) -> None:
